@@ -1,15 +1,19 @@
 #include <psp2/kernel/modulemgr.h>
 #include <psp2/kernel/processmgr.h>
 #include <psp2/kernel/clib.h>
-#include <psp2/gxm.h>
-#include <psp2/io/fcntl.h>
-#include <psp2kern/kernel/debug.h>
+#include <psp2kern/kernel/utils.h>
+#include <psp2/kernel/rng.h>
 #include <taihen.h>
-#include <stdio.h>
+#include <stdlib.h>
 
 #include "reader.h"
 
+
+
 char GAME_URL[256];
+
+char LOBBY_PASSWORD[256];
+uint8_t NETWORK_KEY[16];
 
 static SceUID https_hook;
 static tai_hook_ref_t https_ref;
@@ -19,6 +23,12 @@ static tai_hook_ref_t http_ref;
 
 static SceUID resource_hook;
 static tai_hook_ref_t resource_ref;
+
+static SceUID user_agent_hook;
+static tai_hook_ref_t user_agent_ref;
+
+static SceUID network_encrypt_hook;
+static tai_hook_ref_t network_encrypt_ref;
 
 // This is the HTTPS url the game uses, its fine if its not actually HTTPS
 char *getHttpsUrl(int arg1)
@@ -51,6 +61,23 @@ char *getResourceUrl(char *out, char *hash)
     return out;
 }
 
+const uint8_t ORIGINAL_NETWORK_KEY[16] = {0x38, 0x82, 0x67, 0x39, 0x3e, 0xad, 0x90, 0x42, 0x28, 0x3d, 0xef, 0x11, 0x0f, 0x2e, 0x3c, 0x89};
+
+
+uint8_t network_encrypt(int a1,int a2,uint32_t *a3,uint32_t a4,uint8_t* networkKey,int a6) {
+    if (sceClibMemcmp(ORIGINAL_NETWORK_KEY, networkKey, 16) == 0) {
+        sceClibMemcpy(networkKey, NETWORK_KEY, 16);
+    // return TAI_CONTINUE(uint8_t, network_encrypt_ref, a1, a2, a3, a4, NETWORK_KEY, a6);
+    }
+    return TAI_CONTINUE(uint8_t, network_encrypt_ref, a1, a2, a3, a4, networkKey, a6);
+}
+
+const char* PATCHWORK_USER_AGENT = "PatchworkLBPV 1.0";
+
+void oogily_boogily(int* idkDude, char* userAgent) {
+    return TAI_CONTINUE(void, user_agent_ref, idkDude, PATCHWORK_USER_AGENT);
+}
+
 void _start() __attribute__((weak, alias("module_start")));
 int module_start(SceSize argc, const void *args)
 {
@@ -75,6 +102,27 @@ int module_start(SceSize argc, const void *args)
     }
 
     sceClibPrintf("Final base URL: %s\n", GAME_URL);
+
+
+    // Try to load the URL from the file, if it fails, just use the default URL
+    if (readFileFirstLine("ux0:/allefresher_lobby_password.txt", LOBBY_PASSWORD) == 0)
+    {
+        sceClibPrintf("Failed to read allefresher_lobby_password.txt, randomizing network key\n");
+
+        // definitely random, don't worry about it
+        unsigned int* randbuf = alloca(64);
+        sceKernelGetRandomNumber(randbuf, 64);
+        memcpy(NETWORK_KEY, randbuf, 16);
+    }
+    else
+    {
+        // SHA256 the password
+        unsigned int* outbuf = alloca(32);
+        ksceSha256Digest(LOBBY_PASSWORD, strlen(LOBBY_PASSWORD), outbuf);
+        memcpy(NETWORK_KEY, outbuf, 16);
+
+        sceClibPrintf("Loaded user provided lobby password %s\n", LOBBY_PASSWORD);
+    }
 
     sceClibPrintf("Hooking functions...\n");
 
@@ -113,6 +161,28 @@ int module_start(SceSize argc, const void *args)
         getResourceUrl);
     sceClibPrintf("Hooked resource URL: %08x\n", resource_hook);
 
+    // Patch the game's get_resource_url function to return our own formatted URLs
+    user_agent_hook = taiHookFunctionOffset(
+        &user_agent_ref,
+        info.modid,
+        0,        // Segment index
+        0x0127dc, // The thing that sets up a request probably
+        1,
+        oogily_boogily);
+    sceClibPrintf("Hooked user-agent: %08x\n", user_agent_hook);
+
+
+    // Patch the game's xxtea encryption function to use our custom key
+    network_encrypt_hook = taiHookFunctionOffset(
+        &network_encrypt_ref,
+        info.modid,
+        0,        // Segment index
+        0x00ce44, // The thing that sets up a request probably
+        1,
+        network_encrypt);
+    sceClibPrintf("Hooked network encryption: %08x\n", network_encrypt_hook);
+
+    sceClibPrintf("TEST 72\n");
     return SCE_KERNEL_START_SUCCESS;
 }
 
@@ -121,6 +191,7 @@ int module_stop(SceSize argc, const void *args)
     taiHookRelease(https_hook, https_ref);
     taiHookRelease(http_hook, http_ref);
     taiHookRelease(resource_hook, resource_ref);
+    taiHookRelease(user_agent_hook, user_agent_ref);
 
     return SCE_KERNEL_STOP_SUCCESS;
 }
