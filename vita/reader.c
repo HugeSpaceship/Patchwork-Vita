@@ -1,4 +1,5 @@
 #include "reader.h"
+#include <psp2/kernel/clib.h>
 
 // Reads the file at `path` into `target`
 int readFileFirstLine(char *path, char *target)

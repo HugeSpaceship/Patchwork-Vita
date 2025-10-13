@@ -7,6 +7,7 @@
 #include <stdlib.h>
 
 #include "reader.h"
+#include "sha256.h"
 
 
 
@@ -66,8 +67,8 @@ const uint8_t ORIGINAL_NETWORK_KEY[16] = {0x38, 0x82, 0x67, 0x39, 0x3e, 0xad, 0x
 
 uint8_t network_encrypt(int a1,int a2,uint32_t *a3,uint32_t a4,uint8_t* networkKey,int a6) {
     if (sceClibMemcmp(ORIGINAL_NETWORK_KEY, networkKey, 16) == 0) {
-        sceClibMemcpy(networkKey, NETWORK_KEY, 16);
-    // return TAI_CONTINUE(uint8_t, network_encrypt_ref, a1, a2, a3, a4, NETWORK_KEY, a6);
+      sceClibMemcpy(networkKey, NETWORK_KEY, 16);
+      return TAI_CONTINUE(uint8_t, network_encrypt_ref, a1, a2, a3, a4, NETWORK_KEY, a6);
     }
     return TAI_CONTINUE(uint8_t, network_encrypt_ref, a1, a2, a3, a4, networkKey, a6);
 }
@@ -112,14 +113,18 @@ int module_start(SceSize argc, const void *args)
         // definitely random, don't worry about it
         unsigned int* randbuf = alloca(64);
         sceKernelGetRandomNumber(randbuf, 64);
-        memcpy(NETWORK_KEY, randbuf, 16);
+        sceClibMemcpy(NETWORK_KEY, randbuf, 16);
     }
     else
     {
         // SHA256 the password
         unsigned int* outbuf = alloca(32);
-        ksceSha256Digest(LOBBY_PASSWORD, strlen(LOBBY_PASSWORD), outbuf);
-        memcpy(NETWORK_KEY, outbuf, 16);
+        SHA256_CTX* sha256 = alloca(sizeof(SHA256_CTX));
+        sha256_init(sha256);
+        sha256_update(sha256, LOBBY_PASSWORD, 16);
+        sha256_final(sha256, outbuf);
+        sceClibMemcpy(NETWORK_KEY, outbuf, 16);
+        
 
         sceClibPrintf("Loaded user provided lobby password %s\n", LOBBY_PASSWORD);
     }
@@ -182,7 +187,6 @@ int module_start(SceSize argc, const void *args)
         network_encrypt);
     sceClibPrintf("Hooked network encryption: %08x\n", network_encrypt_hook);
 
-    sceClibPrintf("TEST 72\n");
     return SCE_KERNEL_START_SUCCESS;
 }
 
@@ -192,6 +196,7 @@ int module_stop(SceSize argc, const void *args)
     taiHookRelease(http_hook, http_ref);
     taiHookRelease(resource_hook, resource_ref);
     taiHookRelease(user_agent_hook, user_agent_ref);
+    taiHookRelease(network_encrypt_hook, network_encrypt_ref);
 
     return SCE_KERNEL_STOP_SUCCESS;
 }
