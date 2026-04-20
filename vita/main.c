@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <psp2/kernel/modulemgr.h>
 #include <psp2/kernel/processmgr.h>
 #include <psp2/kernel/clib.h>
@@ -8,7 +9,6 @@
 
 #include "reader.h"
 #include "sha256.h"
-
 
 
 char GAME_URL[256];
@@ -31,6 +31,8 @@ static tai_hook_ref_t user_agent_ref;
 static SceUID network_encrypt_hook;
 static tai_hook_ref_t network_encrypt_ref;
 
+static SceUID resource_check_hook;
+static tai_hook_ref_t resource_check_ref;
 // This is the HTTPS url the game uses, its fine if its not actually HTTPS
 char *getHttpsUrl(int arg1)
 {
@@ -79,6 +81,19 @@ void oogily_boogily(int* idkDude, char* userAgent) {
     return TAI_CONTINUE(void, user_agent_ref, idkDude, PATCHWORK_USER_AGENT);
 }
 
+uint8_t resource_check(uint8_t** csr, uint32_t* size)
+{
+    // uint8_t resType = 0;
+    // sceClibMemcpy(&resType, (void*)(*csr+35), 1);
+    // if (resType == 0x1) { // 35 bytes in should be the resource type
+    //     return 1;
+    // }
+    if (*(*csr+35) == 0x1) {
+        return 1;
+    }
+    return TAI_CONTINUE(uint8_t, network_encrypt_ref, csr, size);
+}
+
 void _start() __attribute__((weak, alias("module_start")));
 int module_start(SceSize argc, const void *args)
 {
@@ -103,7 +118,6 @@ int module_start(SceSize argc, const void *args)
     }
 
     sceClibPrintf("Final base URL: %s\n", GAME_URL);
-
 
     // Try to load the URL from the file, if it fails, just use the default URL
     if (readFileFirstLine("ux0:/allefresher_lobby_password.txt", LOBBY_PASSWORD) == 0)
@@ -178,14 +192,26 @@ int module_start(SceSize argc, const void *args)
 
 
     // Patch the game's xxtea encryption function to use our custom key
-    network_encrypt_hook = taiHookFunctionOffset(
-        &network_encrypt_ref,
+    // network_encrypt_hook = taiHookFunctionOffset(
+    //     &network_encrypt_ref,
+    //     info.modid,
+    //     0,        // Segment index
+    //     0x00ce44, // The thing that sets up a request probably
+    //     1,
+    //     network_encrypt);
+    // sceClibPrintf("Hooked network encryption: %08x\n", network_encrypt_hook);
+
+    // Patch the game's xxtea encryption function to use our custom key
+    resource_check_hook = taiHookFunctionOffset(
+        &resource_check_ref,
         info.modid,
         0,        // Segment index
-        0x00ce44, // The thing that sets up a request probably
+        0x1b2086, //
         1,
-        network_encrypt);
-    sceClibPrintf("Hooked network encryption: %08x\n", network_encrypt_hook);
+        resource_check
+        );
+    sceClibPrintf("Hooked resource check: %08x\n", resource_check_hook);
+
 
     return SCE_KERNEL_START_SUCCESS;
 }
@@ -197,6 +223,7 @@ int module_stop(SceSize argc, const void *args)
     taiHookRelease(resource_hook, resource_ref);
     taiHookRelease(user_agent_hook, user_agent_ref);
     taiHookRelease(network_encrypt_hook, network_encrypt_ref);
+    taiHookRelease(resource_check_hook, resource_check_ref);
 
     return SCE_KERNEL_STOP_SUCCESS;
 }
