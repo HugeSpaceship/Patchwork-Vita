@@ -27,7 +27,6 @@ target_link_libraries(Allefresher_vita
   SceDebugForDriver_stub
   SceKernelUtilsForDriver_stub
   SceIofilemgr_stub
-  c
 )
 
 set_target_properties(Allefresher_vita
