@@ -76,12 +76,11 @@ char *getResourceUrl(char *out, char *hash)
 const uint8_t ORIGINAL_NETWORK_KEY[16] = {0x38, 0x82, 0x67, 0x39, 0x3e, 0xad, 0x90, 0x42, 0x28, 0x3d, 0xef, 0x11, 0x0f, 0x2e, 0x3c, 0x89};
 
 
-uint8_t network_encrypt(int a1,int a2,uint32_t *a3,uint32_t a4,uint8_t* networkKey,int a6) {
+uint32_t network_encrypt(int a1,int a2,uint32_t *a3,uint32_t a4,uint8_t* networkKey,int a6) {
     if (sceClibMemcmp(ORIGINAL_NETWORK_KEY, networkKey, 16) == 0) {
-      sceClibMemcpy(networkKey, NETWORK_KEY, 16);
-      return TAI_CONTINUE(uint8_t, network_encrypt_ref, a1, a2, a3, a4, NETWORK_KEY, a6);
+      return TAI_CONTINUE(uint32_t, network_encrypt_ref, a1, a2, a3, a4, NETWORK_KEY, a6);
     }
-    return TAI_CONTINUE(uint8_t, network_encrypt_ref, a1, a2, a3, a4, networkKey, a6);
+    return TAI_CONTINUE(uint32_t, network_encrypt_ref, a1, a2, a3, a4, networkKey, a6);
 }
 
 const char* PATCHWORK_USER_AGENT = "PatchworkLBPV 1.0";
@@ -93,18 +92,10 @@ void oogily_boogily(int* idkDude, char* userAgent) {
 
 uint32_t resource_check(int* csr, uint32_t size)
 {
-    static char logMsg[128];
     static unsigned char buf[64];
     sceClibMemcpy(buf, (void*)*csr, 64);
-    sceClibSnprintf(logMsg, 128, "resource check call %p %d", csr, size);
-    filelog(logMsg);
-    for (int i = 0; i < 64; ++i)
-    {
-        sceClibSnprintf(logMsg, 128, "%02X", buf[i]);
-        filelog(logMsg);
-    }
-    size_t fuckassAddr = *csr;
-    if (buf[33] == 0x1) { // this is so cool
+
+    if (buf[32] == 0xB) {
         filelog("blocking script");
         return 0;
     }
@@ -211,14 +202,14 @@ int module_start(SceSize argc, const void *args)
 
 
     // Patch the game's xxtea encryption function to use our custom key
-    // network_encrypt_hook = taiHookFunctionOffset(
-    //     &network_encrypt_ref,
-    //     info.modid,
-    //     0,        // Segment index
-    //     0x00ce44, // The thing that sets up a request probably
-    //     1,
-    //     network_encrypt);
-    // sceClibPrintf("Hooked network encryption: %08x\n", network_encrypt_hook);
+    network_encrypt_hook = taiHookFunctionOffset(
+        &network_encrypt_ref,
+        info.modid,
+        0,        // Segment index
+        0x00ce44, // The thing that sets up a request probably
+        1,
+        network_encrypt);
+    sceClibPrintf("Hooked network encryption: %08x\n", network_encrypt_hook);
 
     // Patch the game's xxtea encryption function to use our custom key
     resource_check_hook = taiHookFunctionOffset(
