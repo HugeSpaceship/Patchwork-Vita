@@ -33,6 +33,15 @@ static tai_hook_ref_t network_encrypt_ref;
 
 static SceUID resource_check_hook;
 static tai_hook_ref_t resource_check_ref;
+
+static SceUID logFile;
+
+void filelog(const char* line)
+{
+    sceIoWrite(logFile, line, strlen(line));
+    sceIoWrite(logFile, "\n", 1);
+}
+
 // This is the HTTPS url the game uses, its fine if its not actually HTTPS
 char *getHttpsUrl(int arg1)
 {
@@ -78,26 +87,36 @@ uint8_t network_encrypt(int a1,int a2,uint32_t *a3,uint32_t a4,uint8_t* networkK
 const char* PATCHWORK_USER_AGENT = "PatchworkLBPV 1.0";
 
 void oogily_boogily(int* idkDude, char* userAgent) {
+    filelog("user-agent call");
     return TAI_CONTINUE(void, user_agent_ref, idkDude, PATCHWORK_USER_AGENT);
 }
 
-uint8_t resource_check(uint8_t** csr, uint32_t* size)
+uint32_t resource_check(int* csr, uint32_t size)
 {
-    // uint8_t resType = 0;
-    // sceClibMemcpy(&resType, (void*)(*csr+35), 1);
-    // if (resType == 0x1) { // 35 bytes in should be the resource type
-    //     return 1;
-    // }
-    if (*(*csr+35) == 0x1) {
-        return 1;
+    static char logMsg[128];
+    static unsigned char buf[64];
+    sceClibMemcpy(buf, (void*)*csr, 64);
+    sceClibSnprintf(logMsg, 128, "resource check call %p %d", csr, size);
+    filelog(logMsg);
+    for (int i = 0; i < 64; ++i)
+    {
+        sceClibSnprintf(logMsg, 128, "%02X", buf[i]);
+        filelog(logMsg);
     }
-    return TAI_CONTINUE(uint8_t, network_encrypt_ref, csr, size);
+    size_t fuckassAddr = *csr;
+    if (buf[33] == 0x1) { // this is so cool
+        filelog("blocking script");
+        return 0;
+    }
+    return TAI_CONTINUE(uint32_t, resource_check_ref, csr, size);
 }
 
 void _start() __attribute__((weak, alias("module_start")));
 int module_start(SceSize argc, const void *args)
 {
+    logFile = sceIoOpen("ux0:/data/allefresher.log", SCE_O_WRONLY | SCE_O_TRUNC | SCE_O_CREAT, 0777);
     sceClibPrintf("allefresher module start! looking for config...\n");
+    sceIoWrite(logFile, "allefresher module start! looking for config...\n", 48);
 
     // Try to load the URL from the file, if it fails, just use the default URL
     if (readFileFirstLine("ux0:/allefresher.txt", GAME_URL) == 0)
@@ -224,6 +243,8 @@ int module_stop(SceSize argc, const void *args)
     taiHookRelease(user_agent_hook, user_agent_ref);
     taiHookRelease(network_encrypt_hook, network_encrypt_ref);
     taiHookRelease(resource_check_hook, resource_check_ref);
+
+    sceIoClose(logFile);
 
     return SCE_KERNEL_STOP_SUCCESS;
 }
