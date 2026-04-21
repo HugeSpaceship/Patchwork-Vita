@@ -2,7 +2,6 @@
 #include <psp2/kernel/modulemgr.h>
 #include <psp2/kernel/processmgr.h>
 #include <psp2/kernel/clib.h>
-#include <psp2kern/kernel/utils.h>
 #include <psp2/kernel/rng.h>
 #include <taihen.h>
 #include <stdlib.h>
@@ -13,8 +12,8 @@
 
 char GAME_URL[256];
 
-char LOBBY_PASSWORD[256];
-uint8_t NETWORK_KEY[16];
+static unsigned char LOBBY_PASSWORD[256];
+static uint8_t NETWORK_KEY[16];
 
 static SceUID https_hook;
 static tai_hook_ref_t https_ref;
