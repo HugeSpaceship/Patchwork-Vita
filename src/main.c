@@ -6,13 +6,14 @@
 #include <taihen.h>
 #include <stdlib.h>
 
+#include "clib.h"
 #include "reader.h"
 #include "sha256.h"
 
 
 char GAME_URL[256];
 
-static unsigned char LOBBY_PASSWORD[256];
+static char LOBBY_PASSWORD[256];
 static uint8_t NETWORK_KEY[16];
 
 static SceUID https_hook;
@@ -141,10 +142,10 @@ int module_start(SceSize argc, const void *args)
     else
     {
         // SHA256 the password
-        unsigned int* outbuf = alloca(32);
+        unsigned char* outbuf = alloca(32);
         SHA256_CTX* sha256 = alloca(sizeof(SHA256_CTX));
         sha256_init(sha256);
-        sha256_update(sha256, LOBBY_PASSWORD, 16);
+        sha256_update(sha256, (unsigned char*)LOBBY_PASSWORD, 16);
         sha256_final(sha256, outbuf);
         sceClibMemcpy(NETWORK_KEY, outbuf, 16);
         

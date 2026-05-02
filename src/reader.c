@@ -1,3 +1,4 @@
+#include "clib.h"
 #include "reader.h"
 #include <psp2/kernel/clib.h>
 
