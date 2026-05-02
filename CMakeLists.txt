@@ -19,6 +19,7 @@ add_executable(Patchwork_vita
   src/reader.c
   src/clib.c
   src/sha256.c
+  src/hooks.c
 )
 
 target_link_libraries(Patchwork_vita
