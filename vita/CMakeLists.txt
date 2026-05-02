@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.20)
 
 if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
   if(DEFINED ENV{VITASDK})
@@ -18,17 +18,19 @@ add_executable(Allefresher_vita
   main.c
   reader.c
   clib.c
+  sha256.c
 )
 
 target_link_libraries(Allefresher_vita
   taihen_stub
   SceLibKernel_stub
   SceDebugForDriver_stub
+  SceKernelUtilsForDriver_stub
   SceIofilemgr_stub
 )
 
 set_target_properties(Allefresher_vita
-  PROPERTIES LINK_FLAGS "-nostdlib"
+  PROPERTIES LINK_FLAGS "-nostartfiles"
 )
 
 vita_create_self(Allefresher_vita.suprx Allefresher_vita CONFIG exports.yml UNSAFE)
