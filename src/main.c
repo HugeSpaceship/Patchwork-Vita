@@ -57,7 +57,6 @@ int module_start(SceSize argc, const void *args)
         sha256_update(sha256, (unsigned char*)LOBBY_PASSWORD, 16);
         sha256_final(sha256, outbuf);
         sceClibMemcpy(NETWORK_KEY, outbuf, 16);
-        
 
         sceClibPrintf("Loaded user provided lobby password %s\n", LOBBY_PASSWORD);
     }
