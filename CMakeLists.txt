@@ -15,10 +15,10 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-q -Wall -O3 -fno-inline")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -fno-exceptions")
 
 add_executable(Allefresher_vita
-  main.c
-  reader.c
-  clib.c
-  sha256.c
+  src/main.c
+  src/reader.c
+  src/clib.c
+  src/sha256.c
 )
 
 target_link_libraries(Allefresher_vita

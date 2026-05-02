@@ -1,0 +1,24 @@
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build plugin
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/hugespaceship/vitasdk:main
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Build
+        run: |
+          mkdir build
+          cd build
+          cmake ..
+          make -j4
+      - uses: actions/upload-artifact@v7
+        with:
+          name: patchwork-vita
+          path: build/patchwork.suprx
