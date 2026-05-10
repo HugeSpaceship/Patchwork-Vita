@@ -1,5 +1,6 @@
 #include "hooks.h"
 
+#include <stdbool.h>
 #include <psp2/kernel/modulemgr.h>
 #include <psp2/kernel/processmgr.h>
 #include <psp2/kernel/clib.h>
@@ -78,7 +79,7 @@ char *getResourceUrl(char *out, char *hash)
 
     return out;
 }
-void add_hooks() {
+void add_hooks(bool useJoinKey) {
 tai_module_info_t info;
     info.size = sizeof(tai_module_info_t);
 
@@ -124,17 +125,21 @@ tai_module_info_t info;
         user_agent_swap);
     sceClibPrintf("Hooked user-agent: %08x\n", user_agent_hook);
 
-
-    // Patch the game's xxtea encryption function to use our custom key
-    network_encrypt_hook = taiHookFunctionOffset(
-        &network_encrypt_ref,
-        info.modid,
-        0,        // Segment index
-        0x00ce44, // The thing that sets up a request probably
-        1,
-        network_encrypt);
-    sceClibPrintf("Hooked network encryption: %08x\n", network_encrypt_hook);
-
+    if (useJoinKey)
+    {
+        // Patch the game's xxtea encryption function to use our custom key
+        network_encrypt_hook = taiHookFunctionOffset(
+            &network_encrypt_ref,
+            info.modid,
+            0,        // Segment index
+            0x00ce44, // The thing that sets up a request probably
+            1,
+            network_encrypt);
+        sceClibPrintf("Hooked network encryption: %08x\n", network_encrypt_hook);
+    } else
+    {
+        sceClibPrintf("Not hooking network encryption, join keys are disabled");
+    }
     // Patch the game's xxtea encryption function to use our custom key
     resource_check_hook = taiHookFunctionOffset(
         &resource_check_ref,
@@ -152,6 +157,9 @@ void remove_hooks() {
     taiHookRelease(http_hook, http_ref);
     taiHookRelease(resource_hook, resource_ref);
     taiHookRelease(user_agent_hook, user_agent_ref);
-    taiHookRelease(network_encrypt_hook, network_encrypt_ref);
+    if (network_encrypt_hook != 0)
+    {
+        taiHookRelease(network_encrypt_hook, network_encrypt_ref);
+    }
     taiHookRelease(resource_check_hook, resource_check_ref);
 }

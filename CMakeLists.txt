@@ -11,15 +11,17 @@ endif()
 project(Patchwork_vita)
 include("${VITASDK}/share/vita.cmake" REQUIRED)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-q -Wall -O3 -fno-inline")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-q -Wall -O3 -fno-inline -I libraries/tomlc17/src")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -fno-exceptions")
 
 add_executable(Patchwork_vita
   src/main.c
-  src/reader.c
-  src/clib.c
+        src/clib.c
   src/sha256.c
   src/hooks.c
+  libraries/tomlc17/src/tomlc17.c
+        src/config.c
+        src/config.h
 )
 
 target_link_libraries(Patchwork_vita
@@ -28,6 +30,7 @@ target_link_libraries(Patchwork_vita
   SceDebugForDriver_stub
   SceKernelUtilsForDriver_stub
   SceIofilemgr_stub
+        c
 )
 
 set_target_properties(Patchwork_vita

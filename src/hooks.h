@@ -1,6 +1,7 @@
 #ifndef PATCHWORK_HOOKS_H
 #define PATCHWORK_HOOKS_H
 
+#include <stdbool.h>
 #include <taihen.h>
 #include <string.h>
 
@@ -11,7 +12,7 @@ static char GAME_URL[256];
 
 static uint8_t NETWORK_KEY[16];
 
-void add_hooks();
+void add_hooks(bool useJoinKey);
 void remove_hooks();
 
 uint32_t network_encrypt(int a1,int a2,uint32_t *a3,uint32_t a4,uint8_t* networkKey,int a6);

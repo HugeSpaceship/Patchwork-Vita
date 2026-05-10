@@ -7,3 +7,5 @@ int isspace(int c);
 void log_init();
 void log_finish();
 void filelog(const char* line);
+
+void _init_vita_newlib(void);

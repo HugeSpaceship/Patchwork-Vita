@@ -5,9 +5,9 @@
 #include <stdlib.h>
 
 #include "clib.h"
-#include "reader.h"
 #include "sha256.h"
 #include "hooks.h"
+#include "config.h"
 
 
 static char LOBBY_PASSWORD[256];
@@ -15,31 +15,19 @@ static char LOBBY_PASSWORD[256];
 void _start() __attribute__((weak, alias("module_start")));
 int module_start(SceSize argc, const void *args)
 {
+    _init_vita_newlib(); // this some janky shit because I'm too lazy to do my own memory alloc, I'm sure it will be fine
     sceClibPrintf("allefresher module start! looking for config...\n");
     log_init();
+    PatchworkConfig config = {};
+    int status = LoadConfig("ux0:/data/allefresher.yaml", &config);
+    if (status != 0)
+    {
+        sceClibPrintf("config loader failed!\n");
+    }
+    strcpy(GAME_URL, config.serverUrl);
 
     // Try to load the URL from the file, if it fails, just use the default URL
-    if (readFileFirstLine("ux0:/allefresher.txt", GAME_URL) == 0)
-    {
-        sceClibPrintf("Failed to read allefresher.txt, using default URL\n");
-
-        strcpy(GAME_URL, "http://refresh.jvyden.xyz:2095/lbp");
-    }
-    else
-    {
-        // If it loaded correctly and the last character is a / remove it, this is to make sure the game doesn't accidentally format double //
-        if (GAME_URL[strlen(GAME_URL) - 1] == '/')
-        {
-            GAME_URL[strlen(GAME_URL) - 1] = '\0';
-        }
-
-        sceClibPrintf("Loaded user provided URL %s\n", GAME_URL);
-    }
-
-    sceClibPrintf("Final base URL: %s\n", GAME_URL);
-
-    // Try to load the URL from the file, if it fails, just use the default URL
-    if (readFileFirstLine("ux0:/allefresher_lobby_password.txt", LOBBY_PASSWORD) == 0)
+    if (strlen(config.joinKey) != 0)
     {
         sceClibPrintf("Failed to read allefresher_lobby_password.txt, randomizing network key\n");
 
@@ -54,7 +42,7 @@ int module_start(SceSize argc, const void *args)
         unsigned char* outbuf = alloca(32);
         SHA256_CTX* sha256 = alloca(sizeof(SHA256_CTX));
         sha256_init(sha256);
-        sha256_update(sha256, (unsigned char*)LOBBY_PASSWORD, 16);
+        sha256_update(sha256, (unsigned char*)config.joinKey, 16);
         sha256_final(sha256, outbuf);
         sceClibMemcpy(NETWORK_KEY, outbuf, 16);
 
@@ -63,7 +51,7 @@ int module_start(SceSize argc, const void *args)
 
     sceClibPrintf("Hooking functions...\n");
 
-    add_hooks();
+    add_hooks(config.useJoinKey);
 
     return SCE_KERNEL_START_SUCCESS;
 }
