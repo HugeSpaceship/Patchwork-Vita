@@ -1,8 +1,8 @@
+#include <alloca.h>
 #include <psp2/kernel/modulemgr.h>
 #include <psp2/kernel/processmgr.h>
 #include <psp2/kernel/clib.h>
 #include <psp2/kernel/rng.h>
-#include <stdlib.h>
 
 #include "clib.h"
 #include "sha256.h"
@@ -15,11 +15,10 @@ static char LOBBY_PASSWORD[256];
 void _start() __attribute__((weak, alias("module_start")));
 int module_start(SceSize argc, const void *args)
 {
-    _init_vita_newlib(); // this some janky shit because I'm too lazy to do my own memory alloc, I'm sure it will be fine
     sceClibPrintf("allefresher module start! looking for config...\n");
     log_init();
     PatchworkConfig config = {};
-    int status = LoadConfig("ux0:/data/allefresher.yaml", &config);
+    int status = LoadConfig("ux0:/data/patchwork.yaml", &config);
     if (status != 0)
     {
         sceClibPrintf("config loader failed!\n");

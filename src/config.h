@@ -14,6 +14,8 @@ typedef struct
     bool useJoinKey;
 } PatchworkConfig;
 
+#define MAIN_CONFIG_SECTION "patchwork"
+
 int LoadConfig(const char* configFile, PatchworkConfig* out);
 
 #endif //PATCHWORK_VITA_CONFIG_H
