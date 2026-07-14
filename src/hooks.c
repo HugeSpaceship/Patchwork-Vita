@@ -25,6 +25,11 @@ static tai_hook_ref_t network_encrypt_ref;
 static SceUID resource_check_hook;
 static tai_hook_ref_t resource_check_ref;
 
+static SceUID network_pass_hook;
+static tai_hook_ref_t network_pass_ref;
+
+
+
 uint32_t network_encrypt(int a1,int a2,uint32_t *a3,uint32_t a4,uint8_t* networkKey,int a6) {
     if (sceClibMemcmp(ORIGINAL_NETWORK_KEY, networkKey, 16) == 0) {
       return TAI_CONTINUE(uint32_t, network_encrypt_ref, a1, a2, a3, a4, NETWORK_KEY, a6);
@@ -59,6 +64,10 @@ char *getHttpsUrl(int arg1)
 char *getHttpUrl(int arg1)
 {
     return GAME_URL;
+}
+
+bool hasNetworkPass() {
+    return true;
 }
 
 // This returns the URL the game uses to fetch a specific resource
@@ -150,6 +159,17 @@ tai_module_info_t info;
         resource_check
         );
     sceClibPrintf("Hooked resource check: %08x\n", resource_check_hook);
+
+    network_pass_hook = taiHookFunctionOffset(
+        &network_pass_ref,
+        info.modid,
+        0,        // Segment index
+        0x2465b2, //
+        1,
+        hasNetworkPass
+        );
+    sceClibPrintf("Hooked network pass check: %08x\n", network_pass_hook);
+
 }
 
 void remove_hooks() {
@@ -162,4 +182,5 @@ void remove_hooks() {
         taiHookRelease(network_encrypt_hook, network_encrypt_ref);
     }
     taiHookRelease(resource_check_hook, resource_check_ref);
+    taiHookRelease(network_pass_hook, network_pass_ref);
 }
