@@ -1,11 +1,14 @@
 #include "hooks.h"
 
+#include <alloca.h>
 #include <stdbool.h>
 #include <psp2/kernel/modulemgr.h>
 #include <psp2/kernel/processmgr.h>
 #include <psp2/kernel/clib.h>
+#include <psp2/kernel/rng.h>
 
 #include "clib.h"
+#include "sha256.h"
 
 static SceUID https_hook;
 static tai_hook_ref_t https_ref;
@@ -88,8 +91,33 @@ char *getResourceUrl(char *out, char *hash)
 
     return out;
 }
-void add_hooks(bool useJoinKey) {
-tai_module_info_t info;
+void add_hooks(PatchworkConfig config) {
+    strcpy(GAME_URL, config.serverUrl);
+
+    // Check if join key is set, randomize if not
+    if (strlen(config.joinKey) <= 0)
+    {
+        sceClibPrintf("randomizing network key\n");
+
+        // definitely random, don't worry about it
+        unsigned int* randbuf = alloca(64);
+        sceKernelGetRandomNumber(randbuf, 64);
+        sceClibMemcpy(NETWORK_KEY, randbuf, 16);
+    }
+    else
+    {
+        // SHA256 the password
+        unsigned char* outbuf = alloca(32);
+        SHA256_CTX* sha256 = alloca(sizeof(SHA256_CTX));
+        sha256_init(sha256);
+        sha256_update(sha256, (unsigned char*)config.joinKey, 16);
+        sha256_final(sha256, outbuf);
+        sceClibMemcpy(NETWORK_KEY, outbuf, 16);
+
+        sceClibPrintf("Loaded user provided lobby password %s\n", config.joinKey);
+    }
+
+    tai_module_info_t info;
     info.size = sizeof(tai_module_info_t);
 
     taiGetModuleInfo(TAI_MAIN_MODULE, &info);
@@ -134,7 +162,7 @@ tai_module_info_t info;
         user_agent_swap);
     sceClibPrintf("Hooked user-agent: %08x\n", user_agent_hook);
 
-    if (useJoinKey)
+    if (config.useJoinKey)
     {
         // Patch the game's xxtea encryption function to use our custom key
         network_encrypt_hook = taiHookFunctionOffset(

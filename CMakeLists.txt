@@ -11,6 +11,11 @@ endif()
 project(Patchwork_vita)
 include("${VITASDK}/share/vita.cmake" REQUIRED)
 
+#Setting C standard if it's not set to prevent newer versions of VitaSDK from failing to build...
+if (NOT DEFINED CMAKE_C_STANDARD)
+  set(CMAKE_C_STANDARD 99)#FeTetra likes C 99 so default to that i guess
+endif()
+
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-q -Wall -O3 -fno-inline -I libraries/tomlc17/src")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -fno-exceptions")
 
